@@ -26,30 +26,40 @@ import { ClientRequestsModule } from './modules/client-requests/client-requests.
       inject: [ConfigService],
       useFactory: (
         configService: ConfigService<Configuration>,
-      ): TypeOrmModuleOptions => ({
-        type: 'postgres',
-        // تم إزالة driver: pg لتترك لـ TypeORM تحميل pg تلقائياً
-        host: configService.getOrThrow('database.host', { infer: true }),
-        port: configService.getOrThrow('database.port', { infer: true }),
-        username: configService.getOrThrow('database.username', {
-          infer: true,
-        }),
-        password: configService.getOrThrow('database.password', {
-          infer: true,
-        }),
-        database: configService.getOrThrow('database.database', {
-          infer: true,
-        }),
-        namingStrategy: new SnakeNamingStrategy(),
-        autoLoadEntities: true,
-        synchronize: configService.getOrThrow('database.synchronize', {
-          infer: true,
-        }),
-        logging: configService.getOrThrow('database.logging', { infer: true }),
-        ssl: configService.getOrThrow('database.ssl', { infer: true })
-          ? { rejectUnauthorized: false }
-          : false,
-      }),
+      ): TypeOrmModuleOptions => {
+        const isSslEnabled =
+          process.env.NODE_ENV === 'production' ||
+          String(configService.get('database.ssl', { infer: true })) === 'true';
+
+        return {
+          type: 'postgres',
+          host: configService.getOrThrow('database.host', { infer: true }),
+          port: configService.getOrThrow('database.port', { infer: true }),
+          username: configService.getOrThrow('database.username', {
+            infer: true,
+          }),
+          password: configService.getOrThrow('database.password', {
+            infer: true,
+          }),
+          database: configService.getOrThrow('database.database', {
+            infer: true,
+          }),
+          namingStrategy: new SnakeNamingStrategy(),
+          autoLoadEntities: true,
+          synchronize: configService.getOrThrow('database.synchronize', {
+            infer: true,
+          }),
+          logging: configService.getOrThrow('database.logging', { infer: true }),
+          ssl: isSslEnabled ? { rejectUnauthorized: false } : false,
+          extra: isSslEnabled
+            ? {
+              ssl: {
+                rejectUnauthorized: false,
+              },
+            }
+            : {},
+        };
+      },
     }),
     AuthModule,
     ContentModule,
