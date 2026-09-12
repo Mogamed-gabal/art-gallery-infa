@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule, type TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
-import * as pg from 'pg';
+import 'pg';
 import configuration, { type Configuration } from './config/configuration';
 import { envValidationSchema } from './config/env.validation';
 import { AuthModule } from './modules/auth/auth.module';
@@ -28,7 +28,7 @@ import { ClientRequestsModule } from './modules/client-requests/client-requests.
         configService: ConfigService<Configuration>,
       ): TypeOrmModuleOptions => ({
         type: 'postgres',
-        driver: pg,
+        // تم إزالة driver: pg لتترك لـ TypeORM تحميل pg تلقائياً
         host: configService.getOrThrow('database.host', { infer: true }),
         port: configService.getOrThrow('database.port', { infer: true }),
         username: configService.getOrThrow('database.username', {
@@ -59,4 +59,4 @@ import { ClientRequestsModule } from './modules/client-requests/client-requests.
     ClientRequestsModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }
