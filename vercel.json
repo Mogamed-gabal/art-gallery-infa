@@ -1,14 +1,25 @@
 {
-    "version": 2,
-    "builds": [
-        {
-            "src": "dist/main.js",
-            "use": "@vercel/node",
-            "config": {
-                "includeFiles": [
-                    "node_modules/pg/**"
-                ]
-            }
-        }
-    ]
+  "version": 2,
+  "buildCommand": "npm run build",
+  "builds": [
+    {
+      "src": "dist/main.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "dist/**",
+          "node_modules/pg/**",
+          "node_modules/typeorm/**",
+          "node_modules/reflect-metadata/**"
+        ]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "dist/main.js"
+    }
+  ]
 }
+
