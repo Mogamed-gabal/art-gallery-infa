@@ -48,26 +48,32 @@ export const envValidationSchema = Joi.object({
   CLOUDINARY_CLOUD_NAME: Joi.string().allow('').default(''),
   CLOUDINARY_API_KEY: Joi.string().allow('').default(''),
   CLOUDINARY_API_SECRET: Joi.string().allow('').default(''),
-  PAYMOB_API_KEY: Joi.when('NODE_ENV', {
-    is: 'production',
-    then: Joi.string().required(),
-    otherwise: Joi.string().allow('').default(''),
-  }),
-  PAYMOB_INTEGRATION_ID: Joi.when('NODE_ENV', {
-    is: 'production',
-    then: Joi.number().required(),
-    otherwise: Joi.string().allow('').default(''),
-  }),
-  PAYMOB_IFRAME_ID: Joi.when('NODE_ENV', {
-    is: 'production',
-    then: Joi.number().required(),
-    otherwise: Joi.string().allow('').default(''),
-  }),
-  PAYMOB_HMAC_SECRET: Joi.when('NODE_ENV', {
-    is: 'production',
-    then: Joi.string().required(),
-    otherwise: Joi.string().allow('').default(''),
-  }),
+  // TODO: uncomment when Paymob credentials are added to Vercel env vars
+  // PAYMOB_API_KEY: Joi.when('NODE_ENV', {
+  //   is: 'production',
+  //   then: Joi.string().required(),
+  //   otherwise: Joi.string().allow('').default(''),
+  // }),
+  // PAYMOB_INTEGRATION_ID: Joi.when('NODE_ENV', {
+  //   is: 'production',
+  //   then: Joi.number().required(),
+  //   otherwise: Joi.string().allow('').default(''),
+  // }),
+  // PAYMOB_IFRAME_ID: Joi.when('NODE_ENV', {
+  //   is: 'production',
+  //   then: Joi.number().required(),
+  //   otherwise: Joi.string().allow('').default(''),
+  // }),
+  // PAYMOB_HMAC_SECRET: Joi.when('NODE_ENV', {
+  //   is: 'production',
+  //   then: Joi.string().required(),
+  //   otherwise: Joi.string().allow('').default(''),
+  // }),
+  PAYMOB_API_KEY: Joi.string().allow('').default(''),
+  PAYMOB_INTEGRATION_ID: Joi.string().allow('').default(''),
+  PAYMOB_IFRAME_ID: Joi.string().allow('').default(''),
+  PAYMOB_HMAC_SECRET: Joi.string().allow('').default(''),
+
   GMAIL_USER: Joi.string().email().allow('').default(''),
   GMAIL_APP_PASSWORD: Joi.string().allow('').default(''),
 }).unknown(true);
