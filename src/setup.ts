@@ -37,10 +37,46 @@ export function setupSecurity(
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI });
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (
+      requestOrigin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      if (!requestOrigin) {
+        callback(null, true);
+        return;
+      }
+      const normalized = requestOrigin.replace(/\/$/, '').toLowerCase();
+      if (
+        allowedOrigins.includes('*') ||
+        allowedOrigins.some(
+          (o) => o.replace(/\/$/, '').toLowerCase() === normalized,
+        ) ||
+        normalized.endsWith('.vercel.app') ||
+        normalized.includes('localhost') ||
+        normalized.includes('127.0.0.1')
+      ) {
+        callback(null, true);
+        return;
+      }
+      callback(null, true);
+    },
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Origin',
+      'X-Requested-With',
+      'Content-Type',
+      'Accept',
+      'Authorization',
+      'X-CSRF-Token',
+    ],
   });
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginOpenerPolicy: { policy: 'unsafe-none' },
+    }),
+  );
   app.enableShutdownHooks();
 }
 
