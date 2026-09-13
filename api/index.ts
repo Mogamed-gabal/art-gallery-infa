@@ -1,23 +1,18 @@
 import * as crypto from 'crypto';
 if (!(globalThis as any).crypto) {
-  (globalThis as any).crypto = crypto;
+  (globalThis as any).crypto = crypto as any;
 }
 
 import { NestFactory } from '@nestjs/core';
-import { ExpressAdapter } from '@nestjs/platform-express';
 import { INestApplication } from '@nestjs/common';
-import express from 'express';
-
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/setup';
 
-const server = express();
 let cachedApp: INestApplication;
 
 async function bootstrap(): Promise<INestApplication> {
   if (!cachedApp) {
-    const adapter = new ExpressAdapter(server);
-    const app = await NestFactory.create(AppModule, adapter);
+    const app = await NestFactory.create(AppModule);
     setupApp(app);
     await app.init();
     cachedApp = app;
@@ -26,6 +21,9 @@ async function bootstrap(): Promise<INestApplication> {
 }
 
 export default async (req: any, res: any) => {
-  await bootstrap();
-  server(req, res);
+  const app = await bootstrap();
+  const httpAdapter = app.getHttpAdapter();
+  const expressInstance = httpAdapter.getInstance();
+  expressInstance(req, res);
 };
+
