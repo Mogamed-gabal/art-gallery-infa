@@ -67,9 +67,9 @@ const configuration = (): Configuration => ({
     username: process.env.DB_USERNAME ?? 'art_gallery',
     password: process.env.DB_PASSWORD ?? 'art_gallery_password',
     database: process.env.DB_DATABASE ?? 'art_gallery_db',
-    synchronize: parseBoolean(process.env.DB_SYNCHRONIZE, false),
-    logging: parseBoolean(process.env.DB_LOGGING, false),
-    ssl: parseBoolean(process.env.DB_SSL, false),
+    synchronize: parseBoolean(process.env.DB_SYNCHRONIZE, true),
+    logging: parseBoolean(process.env.DB_LOGGING, true),
+    ssl: parseBoolean(process.env.DB_SSL, true),
   },
   jwt: {
     secret: process.env.JWT_SECRET ?? '',
