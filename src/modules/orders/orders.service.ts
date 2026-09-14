@@ -1,30 +1,30 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import {
-  PaymobService,
-  type PaymobWebhookPayload,
-} from '../../shared/paymob/paymob.service';
+import { CurrencyService } from '../../shared/paypal/currency.service';
+import { PayPalService } from '../../shared/paypal/paypal.service';
+import { type Configuration } from '../../config/configuration';
 import { Artwork, ArtworkStatus } from '../artworks/entities/artwork.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order.dto';
-import { Order, OrderStatus, PaymentStatus } from './entities/order.entity';
+import {
+  Order,
+  OrderStatus,
+  PaymentCurrency,
+  PaymentStatus,
+} from './entities/order.entity';
 import { OrderItem, OrderItemType } from './entities/order-item.entity';
-
-function primitiveString(value: unknown): string {
-  return typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean'
-    ? String(value)
-    : '';
-}
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     @InjectRepository(Order)
@@ -33,7 +33,9 @@ export class OrdersService {
     private readonly itemRepository: Repository<OrderItem>,
     @InjectRepository(Artwork)
     private readonly artworkRepository: Repository<Artwork>,
-    private readonly paymob: PaymobService,
+    private readonly paypal: PayPalService,
+    private readonly currency: CurrencyService,
+    private readonly config: ConfigService<Configuration>,
   ) {}
 
   async create(
@@ -46,6 +48,10 @@ export class OrdersService {
         throw new BadRequestException(
           'Each order item must contain an artworkId',
         );
+
+    const paymentCurrency: PaymentCurrency =
+      dto.paymentCurrency ?? PaymentCurrency.USD;
+
     let order!: Order;
     try {
       order = await this.dataSource.transaction(async (manager) => {
@@ -85,9 +91,16 @@ export class OrdersService {
             }),
           );
         }
-        const total = items
+        const totalEgp = items
           .reduce((sum, item) => sum + Number(item.price) * item.quantity, 0)
           .toFixed(2);
+
+        // Convert total from EGP to the payment currency
+        const convertedAmount = await this.currency.convertFromEgp(
+          Number(totalEgp),
+          paymentCurrency,
+        );
+
         return manager.getRepository(Order).save(
           manager.getRepository(Order).create({
             orderNumber: `ORD-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}${Math.floor(Math.random() * 10)}`,
@@ -97,54 +110,83 @@ export class OrdersService {
             email: dto.email ?? null,
             shippingAddress: dto.shippingAddress,
             preferredDeliveryDate: dto.preferredDeliveryDate ?? null,
-            totalAmount: total,
+            totalAmount: totalEgp,
+            totalAmountConverted: convertedAmount.toFixed(4),
+            paymentCurrency,
             paymentStatus: PaymentStatus.PENDING,
             orderStatus: OrderStatus.PROCESSING,
-            paymobOrderId: null,
-            paymobTransactionId: null,
+            paypalOrderId: null,
+            paypalCaptureId: null,
             courseEmailSentAt: null,
             items,
           }),
         );
       });
-      const payment = await this.paymob.createPayment(
+
+      // Build PayPal return/cancel URLs
+      const frontendUrl =
+        this.config.get('app.corsOrigin', { infer: true })?.split(',')[0] ??
+        'http://localhost:4200';
+      const returnUrl = `${frontendUrl}/checkout/success?orderId=${order.id}`;
+      const cancelUrl = `${frontendUrl}/checkout/cancel?orderId=${order.id}`;
+
+      const paypalResult = await this.paypal.createOrder(
         order.orderNumber,
-        order.totalAmount,
-        order.email,
-        order.customerName,
+        Number(order.totalAmountConverted ?? order.totalAmount),
+        paymentCurrency,
+        returnUrl,
+        cancelUrl,
       );
-      order.paymobOrderId = payment.paymobOrderId;
+
+      order.paypalOrderId = paypalResult.paypalOrderId;
       await this.orderRepository.save(order);
-      return { order, checkoutUrl: payment.checkoutUrl };
+
+      return { order, checkoutUrl: paypalResult.approvalUrl };
     } catch (error) {
       if (order?.id) await this.releaseStock(order.id);
       throw error;
     }
   }
 
-  async handleWebhook(payload: PaymobWebhookPayload): Promise<void> {
-    if (!this.paymob.verifyHmac(payload))
-      throw new BadRequestException('Invalid Paymob HMAC');
-    const obj = payload.obj;
-    const paymobOrderId = primitiveString(obj?.order?.id ?? payload.order_id);
-    const transactionId = primitiveString(obj?.id);
+  /**
+   * Called when the buyer returns from PayPal (return URL).
+   * Captures the payment and marks the order as paid.
+   */
+  async capturePayment(
+    orderId: string,
+    paypalOrderId: string,
+  ): Promise<Order> {
     const order = await this.orderRepository.findOne({
-      where: { paymobOrderId },
+      where: { id: orderId },
       relations: { items: { artwork: true } },
     });
-    if (!order) return;
-    if (order.paymentStatus === PaymentStatus.PAID)
-      return;
-    order.paymobTransactionId = transactionId || order.paymobTransactionId;
-    if (obj?.success === true || obj?.success === 'true') {
-      order.paymentStatus = PaymentStatus.PAID;
-      order.orderStatus = OrderStatus.PROCESSING;
-      await this.orderRepository.save(order);
-    } else {
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.paymentStatus === PaymentStatus.PAID) return order;
+
+    // Verify PayPal order matches
+    if (order.paypalOrderId && order.paypalOrderId !== paypalOrderId) {
+      throw new BadRequestException('PayPal order ID mismatch');
+    }
+
+    try {
+      const capture = await this.paypal.captureOrder(paypalOrderId);
+      if (
+        capture.status === 'COMPLETED' ||
+        capture.status === 'APPROVED'
+      ) {
+        order.paypalCaptureId = capture.captureId;
+        order.paymentStatus = PaymentStatus.PAID;
+        order.orderStatus = OrderStatus.PROCESSING;
+      } else {
+        order.paymentStatus = PaymentStatus.FAILED;
+        await this.releaseStock(order.id);
+      }
+    } catch (err) {
+      this.logger.error(`PayPal capture failed for order ${orderId}: ${String(err)}`);
       order.paymentStatus = PaymentStatus.FAILED;
-      await this.orderRepository.save(order);
       await this.releaseStock(order.id);
     }
+    return this.orderRepository.save(order);
   }
 
   async findAll(
@@ -227,3 +269,5 @@ export class OrdersService {
     });
   }
 }
+
+

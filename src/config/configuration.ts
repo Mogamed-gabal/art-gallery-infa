@@ -2,6 +2,7 @@ export interface AppConfiguration {
   readonly nodeEnv: 'development' | 'test' | 'production';
   readonly port: number;
   readonly corsOrigin: string;
+  readonly frontendUrl: string;
 }
 export interface DatabaseConfiguration {
   readonly host: string;
@@ -32,6 +33,12 @@ export interface PaymobConfiguration {
   readonly iframeId: string;
   readonly hmacSecret: string;
 }
+export interface PayPalConfiguration {
+  readonly clientId: string;
+  readonly clientSecret: string;
+  readonly sandbox: boolean;
+  readonly webhookId: string;
+}
 export interface MailConfiguration {
   readonly gmailUser: string;
   readonly gmailAppPassword: string;
@@ -43,6 +50,7 @@ export interface Configuration {
   readonly admin: AdminConfiguration;
   readonly cloudinary: CloudinaryConfiguration;
   readonly paymob: PaymobConfiguration;
+  readonly paypal: PayPalConfiguration;
   readonly mail: MailConfiguration;
 }
 function parseNumber(value: string | undefined, fallback: number): number {
@@ -60,6 +68,7 @@ const configuration = (): Configuration => ({
         : 'development',
     port: parseNumber(process.env.PORT, 3000),
     corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+    frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:4300',
   },
   database: {
     host: process.env.DB_HOST ?? 'localhost',
@@ -90,9 +99,16 @@ const configuration = (): Configuration => ({
     iframeId: process.env.PAYMOB_IFRAME_ID ?? '',
     hmacSecret: process.env.PAYMOB_HMAC_SECRET ?? '',
   },
+  paypal: {
+    clientId: process.env.PAYPAL_CLIENT_ID ?? '',
+    clientSecret: process.env.PAYPAL_CLIENT_SECRET ?? '',
+    sandbox: parseBoolean(process.env.PAYPAL_SANDBOX, true),
+    webhookId: process.env.PAYPAL_WEBHOOK_ID ?? '',
+  },
   mail: {
     gmailUser: process.env.GMAIL_USER ?? '',
     gmailAppPassword: process.env.GMAIL_APP_PASSWORD ?? '',
   },
 });
 export default configuration;
+

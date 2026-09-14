@@ -3,14 +3,12 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-RUN npm install -g pnpm@10.4.1
-
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+COPY package*.json ./
+RUN npm install --legacy-peer-deps
 
 COPY . .
-RUN pnpm run build
-RUN pnpm prune --prod
+RUN npm run build
+RUN npm prune --production
 
 FROM node:20-alpine AS runner
 

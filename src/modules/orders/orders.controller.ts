@@ -12,9 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderQueryDto, UpdateOrderStatusDto } from './dto/order.dto';
-import { PaymobHmacGuard } from './guards/paymob-hmac.guard';
 import { OrdersService } from './orders.service';
-import { type PaymobWebhookPayload } from '../../shared/paymob/paymob.service';
 
 @ApiBearerAuth('access-token')
 @ApiTags('orders')
@@ -28,11 +26,18 @@ export class OrdersController {
     return this.ordersService.create(dto);
   }
 
-  @Post('webhook/paymob')
-  @UseGuards(PaymobHmacGuard)
-  @ApiOperation({ summary: 'Receive verified Paymob transaction callback' })
-  webhook(@Body() payload: PaymobWebhookPayload) {
-    return this.ordersService.handleWebhook(payload);
+  /**
+   * PayPal redirects the buyer to this endpoint after approval.
+   * The frontend should call this URL to capture the payment.
+   * Query params: orderId (our DB order ID), token (PayPal order ID), PayerID
+   */
+  @Post('capture')
+  @ApiOperation({ summary: 'Capture PayPal payment after buyer approval' })
+  capture(
+    @Query('orderId') orderId: string,
+    @Query('token') paypalOrderId: string,
+  ) {
+    return this.ordersService.capturePayment(orderId, paypalOrderId);
   }
 
   @Get()

@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsEmail,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -12,6 +13,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { PaymentCurrency } from '../entities/order.entity';
 
 export class CreateOrderItemDto {
   @ApiPropertyOptional({ format: 'uuid' })
@@ -36,6 +38,10 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   preferredDeliveryDate?: string;
+  @ApiPropertyOptional({ enum: PaymentCurrency, default: PaymentCurrency.USD })
+  @IsOptional()
+  @IsEnum(PaymentCurrency)
+  paymentCurrency?: PaymentCurrency;
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()
   @ValidateNested({ each: true })

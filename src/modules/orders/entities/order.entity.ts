@@ -21,6 +21,10 @@ export enum OrderStatus {
   DELIVERED = 'DELIVERED',
   CANCELLED = 'CANCELLED',
 }
+export enum PaymentCurrency {
+  USD = 'USD',
+  EUR = 'EUR',
+}
 
 @Entity({ name: 'orders' })
 export class Order {
@@ -36,15 +40,26 @@ export class Order {
   @Column({ type: 'date', nullable: true }) preferredDeliveryDate!:
     string | null;
   @Column({ type: 'decimal', precision: 12, scale: 2 }) totalAmount!: string;
+  /** Total amount in the chosen payment currency (USD or EUR) */
+  @Column({ type: 'decimal', precision: 12, scale: 4, nullable: true })
+  totalAmountConverted!: string | null;
+  /** Currency selected by the buyer for PayPal payment */
+  @Column({
+    type: 'enum',
+    enum: PaymentCurrency,
+    nullable: true,
+  })
+  paymentCurrency!: PaymentCurrency | null;
   @Column({ type: 'enum', enum: PaymentStatus, default: PaymentStatus.PENDING })
   paymentStatus!: PaymentStatus;
   @Column({ type: 'enum', enum: OrderStatus, default: OrderStatus.PROCESSING })
   orderStatus!: OrderStatus;
+  /** PayPal Order ID returned when the PayPal order is created */
   @Index()
   @Column({ type: 'varchar', nullable: true })
-  paymobOrderId!: string | null;
-  @Column({ type: 'varchar', nullable: true }) paymobTransactionId!:
-    string | null;
+  paypalOrderId!: string | null;
+  /** PayPal Capture ID returned after the buyer approves and payment is captured */
+  @Column({ type: 'varchar', nullable: true }) paypalCaptureId!: string | null;
   @Column({ type: 'timestamptz', nullable: true })
   courseEmailSentAt!: Date | null;
   @OneToMany(() => OrderItem, (item) => item.order, {

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PaymobModule } from '../../shared/paymob/paymob.module';
+import { PayPalModule } from '../../shared/paypal/paypal.module';
 import { MailModule } from '../../shared/mail/mail.module';
 import { Artwork } from '../artworks/entities/artwork.entity';
 import { AuthModule } from '../auth/auth.module';
@@ -8,17 +8,16 @@ import { OrderItem } from './entities/order-item.entity';
 import { Order } from './entities/order.entity';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
-import { PaymobHmacGuard } from './guards/paymob-hmac.guard';
 
 @Module({
   imports: [
     AuthModule,
-    PaymobModule,
+    PayPalModule,
     MailModule,
     TypeOrmModule.forFeature([Order, OrderItem, Artwork]),
   ],
   controllers: [OrdersController],
-  providers: [OrdersService, PaymobHmacGuard],
+  providers: [OrdersService],
   exports: [OrdersService],
 })
 export class OrdersModule {}
