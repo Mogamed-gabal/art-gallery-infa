@@ -28,8 +28,7 @@ import { ClientRequestsModule } from './modules/client-requests/client-requests.
         configService: ConfigService<Configuration>,
       ): TypeOrmModuleOptions => {
         const isSslEnabled =
-          process.env.NODE_ENV === 'production' ||
-          String(configService.get('database.ssl', { infer: true })) === 'true';
+          String(process.env.DB_SSL ?? configService.get('database.ssl', { infer: true })).toLowerCase() === 'true';
 
         return {
           type: 'postgres',

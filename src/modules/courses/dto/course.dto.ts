@@ -9,13 +9,30 @@ function toBoolean(value: unknown): unknown {
 }
 
 export class CreateCourseDto {
-  @ApiProperty({ example: 'أساسيات الرسم الزيتي' })
-  @IsString() @IsNotEmpty() @MaxLength(180)
-  title!: string;
+  @ApiPropertyOptional({ example: 'أساسيات الرسم الزيتي' })
+  @IsOptional() @IsString() @MaxLength(180)
+  titleAr?: string;
 
-  @ApiProperty({ example: 'دورة تعريفية تساعدك على فهم مبادئ الرسم.' })
-  @IsString() @IsNotEmpty()
-  description!: string;
+  @ApiPropertyOptional({ example: 'Oil Painting Fundamentals' })
+  @IsOptional() @IsString() @MaxLength(180)
+  titleEn?: string;
+
+  @ApiPropertyOptional({ example: 'دورة شاملة في مبادئ الرسم الزيتي' })
+  @IsOptional() @IsString()
+  descriptionAr?: string;
+
+  @ApiPropertyOptional({ example: 'Comprehensive course on oil painting principles' })
+  @IsOptional() @IsString()
+  descriptionEn?: string;
+
+  // Backwards compatibility fallback
+  @ApiPropertyOptional({ example: 'أساسيات الرسم الزيتي' })
+  @IsOptional() @IsString() @MaxLength(180)
+  title?: string;
+
+  @ApiPropertyOptional({ example: 'دورة تعريفية تساعدك على فهم مبادئ الرسم.' })
+  @IsOptional() @IsString()
+  description?: string;
 
   @ApiProperty({ example: 'https://courses.example.com/oil-painting' })
   @IsUrl({ require_protocol: true })
@@ -31,9 +48,17 @@ export class CreateCourseDto {
 }
 
 export class UpdateCourseDto {
-  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty() @MaxLength(180)
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(180)
+  titleAr?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(180)
+  titleEn?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  descriptionAr?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  descriptionEn?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(180)
   title?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() @IsNotEmpty()
+  @ApiPropertyOptional() @IsOptional() @IsString()
   description?: string;
   @ApiPropertyOptional() @IsOptional() @IsUrl({ require_protocol: true })
   externalUrl?: string;

@@ -32,9 +32,13 @@ export class CoursesService {
       const upload = await this.cloudinary.uploadVideo(videoFile);
       welcomeVideoUrl = upload.secureUrl;
     }
+    const title = dto.title || dto.titleAr || dto.titleEn || '';
+    const description = dto.description || dto.descriptionAr || dto.descriptionEn || '';
     return this.courseRepository.save(
       this.courseRepository.create({
         ...dto,
+        title,
+        description,
         welcomeVideoUrl,
         isActive: dto.isActive ?? true,
       }),
@@ -44,6 +48,12 @@ export class CoursesService {
   async update(id: string, dto: UpdateCourseDto, videoFile?: Express.Multer.File): Promise<Course> {
     const course = await this.findOne(id);
     Object.assign(course, dto);
+    if (dto.titleAr || dto.titleEn) {
+      course.title = dto.title || dto.titleAr || dto.titleEn || course.title;
+    }
+    if (dto.descriptionAr || dto.descriptionEn) {
+      course.description = dto.description || dto.descriptionAr || dto.descriptionEn || course.description;
+    }
     if (videoFile) {
       const upload = await this.cloudinary.uploadVideo(videoFile);
       course.welcomeVideoUrl = upload.secureUrl;

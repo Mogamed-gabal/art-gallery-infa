@@ -3,6 +3,8 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
@@ -22,8 +24,10 @@ import {
 import { OrderItem, OrderItemType } from './entities/order-item.entity';
 
 @Injectable()
-export class OrdersService {
+export class OrdersService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(OrdersService.name);
+  private cleanupInterval: NodeJS.Timeout | null = null;
+  private static readonly EXPIRATION_MINUTES = 15;
 
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
@@ -38,9 +42,32 @@ export class OrdersService {
     private readonly config: ConfigService<Configuration>,
   ) {}
 
+  onApplicationBootstrap() {
+    this.cancelExpiredPendingOrders().catch((err) =>
+      this.logger.error(`Initial cleanup error: ${String(err)}`),
+    );
+    this.cleanupInterval = setInterval(() => {
+      this.cancelExpiredPendingOrders().catch((err) =>
+        this.logger.error(`Periodic cleanup error: ${String(err)}`),
+      );
+    }, 60_000);
+  }
+
+  onModuleDestroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+  }
+
   async create(
     dto: CreateOrderDto,
   ): Promise<{ order: Order; checkoutUrl: string }> {
+    // Proactively release stock of any pending orders older than 15 minutes
+    await this.cancelExpiredPendingOrders().catch((err) =>
+      this.logger.error(`Error in pre-checkout cleanup: ${String(err)}`),
+    );
+
     if (dto.items.length === 0)
       throw new BadRequestException('At least one order item is required');
     for (const item of dto.items)
@@ -91,13 +118,13 @@ export class OrdersService {
             }),
           );
         }
-        const totalEgp = items
+        const totalUsd = items
           .reduce((sum, item) => sum + Number(item.price) * item.quantity, 0)
           .toFixed(2);
 
-        // Convert total from EGP to the payment currency
-        const convertedAmount = await this.currency.convertFromEgp(
-          Number(totalEgp),
+        // Convert total from USD to the payment currency (EUR only; USD passes through)
+        const convertedAmount = await this.currency.convertFromUsd(
+          Number(totalUsd),
           paymentCurrency,
         );
 
@@ -110,7 +137,7 @@ export class OrdersService {
             email: dto.email ?? null,
             shippingAddress: dto.shippingAddress,
             preferredDeliveryDate: dto.preferredDeliveryDate ?? null,
-            totalAmount: totalEgp,
+            totalAmount: totalUsd, // stored in USD
             totalAmountConverted: convertedAmount.toFixed(4),
             paymentCurrency,
             paymentStatus: PaymentStatus.PENDING,
@@ -241,6 +268,45 @@ export class OrdersService {
     }
     order.orderStatus = dto.orderStatus;
     return this.orderRepository.save(order);
+  }
+
+  /**
+   * Automatically cancels any orders that have remained PENDING for over 15 minutes,
+   * returning reserved artwork stock back to AVAILABLE.
+   */
+  async cancelExpiredPendingOrders(): Promise<number> {
+    const expirationThreshold = new Date(
+      Date.now() - OrdersService.EXPIRATION_MINUTES * 60 * 1000,
+    );
+
+    const expiredOrders = await this.orderRepository
+      .createQueryBuilder('order')
+      .where('order.payment_status = :status', { status: PaymentStatus.PENDING })
+      .andWhere('order.created_at <= :threshold', { threshold: expirationThreshold })
+      .getMany();
+
+    if (expiredOrders.length === 0) return 0;
+
+    this.logger.log(
+      `Found ${expiredOrders.length} expired pending order(s). Releasing stock and cancelling...`,
+    );
+
+    let count = 0;
+    for (const order of expiredOrders) {
+      try {
+        await this.releaseStock(order.id);
+        order.orderStatus = OrderStatus.CANCELLED;
+        order.paymentStatus = PaymentStatus.CANCELLED;
+        await this.orderRepository.save(order);
+        count++;
+        this.logger.log(`Auto-cancelled expired order #${order.orderNumber} (ID: ${order.id})`);
+      } catch (err) {
+        this.logger.error(
+          `Failed to auto-cancel order ${order.id}: ${String(err)}`,
+        );
+      }
+    }
+    return count;
   }
 
   private async releaseStock(orderId: string): Promise<void> {

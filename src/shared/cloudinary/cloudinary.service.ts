@@ -43,6 +43,7 @@ export class CloudinaryService {
     return this.upload(file, {
       folder: 'art-gallery/courses/videos',
       resource_type: 'video',
+      chunk_size: 6000000,
     });
   }
 

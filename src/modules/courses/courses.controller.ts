@@ -45,7 +45,7 @@ export class CoursesController {
   @UseInterceptors(
     FileInterceptor('video', {
       storage: memoryStorage(),
-      limits: { fileSize: 50 * 1024 * 1024 },
+      limits: { fileSize: 100 * 1024 * 1024 },
     }),
   )
   @ApiBearerAuth('access-token')
@@ -62,7 +62,7 @@ export class CoursesController {
   @UseInterceptors(
     FileInterceptor('video', {
       storage: memoryStorage(),
-      limits: { fileSize: 50 * 1024 * 1024 },
+      limits: { fileSize: 100 * 1024 * 1024 },
     }),
   )
   @ApiBearerAuth('access-token')

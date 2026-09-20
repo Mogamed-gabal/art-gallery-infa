@@ -9,10 +9,10 @@ interface RateCache {
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
-// Fallback rates used if the API is unreachable
+// Fallback rates: how many units of target currency = 1 USD
 const FALLBACK_RATES: Record<SupportedCurrency, number> = {
-  USD: 0.021,  // ~1 EGP = 0.021 USD  (adjust if needed)
-  EUR: 0.019,  // ~1 EGP = 0.019 EUR
+  USD: 1,       // 1 USD = 1 USD (pass-through)
+  EUR: 0.92,    // ~1 USD = 0.92 EUR
 };
 
 @Injectable()
@@ -21,10 +21,11 @@ export class CurrencyService {
   private cache: RateCache | null = null;
 
   /**
-   * Returns how many units of `targetCurrency` equal 1 EGP.
+   * Returns how many units of `targetCurrency` equal 1 USD.
    * Results are cached for 6 hours.
    */
-  async getEgpRate(targetCurrency: SupportedCurrency): Promise<number> {
+  async getUsdRate(targetCurrency: SupportedCurrency): Promise<number> {
+    if (targetCurrency === 'USD') return 1;
     if (this.cache && Date.now() - this.cache.fetchedAt < CACHE_TTL_MS) {
       return this.cache.rates[targetCurrency];
     }
@@ -33,24 +34,25 @@ export class CurrencyService {
   }
 
   /**
-   * Converts an EGP amount to the target currency.
+   * Converts a USD amount to the target currency.
+   * If target is USD, returns the amount unchanged.
    * Minimum PayPal amount is 0.01 in most currencies.
    */
-  async convertFromEgp(
-    amountEgp: number,
+  async convertFromUsd(
+    amountUsd: number,
     targetCurrency: SupportedCurrency,
   ): Promise<number> {
-    const rate = await this.getEgpRate(targetCurrency);
-    const converted = amountEgp * rate;
-    // Ensure minimum PayPal amount
+    if (targetCurrency === 'USD') return Math.max(amountUsd, 0.01);
+    const rate = await this.getUsdRate(targetCurrency);
+    const converted = amountUsd * rate;
     return Math.max(converted, 0.01);
   }
 
   private async refreshRates(): Promise<void> {
     try {
       // Frankfurter API: free, no key required, returns current FX rates
-      // We request EGP as base to get direct EGP→target rates
-      const url = 'https://api.frankfurter.app/latest?base=EGP&symbols=USD,EUR';
+      // Base = USD to get USD→target rates
+      const url = 'https://api.frankfurter.app/latest?base=USD&symbols=EUR';
       const response = await fetch(url, {
         signal: AbortSignal.timeout(5000),
       });
@@ -59,18 +61,17 @@ export class CurrencyService {
         rates: Record<string, number>;
       };
       const rates: Record<SupportedCurrency, number> = {
-        USD: data.rates['USD'] ?? FALLBACK_RATES.USD,
+        USD: 1,
         EUR: data.rates['EUR'] ?? FALLBACK_RATES.EUR,
       };
       this.cache = { rates, fetchedAt: Date.now() };
       this.logger.log(
-        `Exchange rates refreshed: 1 EGP = ${rates.USD} USD | ${rates.EUR} EUR`,
+        `Exchange rates refreshed: 1 USD = ${rates.EUR} EUR`,
       );
     } catch (err) {
       this.logger.warn(
         `Failed to fetch exchange rates, using fallback: ${String(err)}`,
       );
-      // Use fallback if cache is empty; keep stale cache if available
       if (!this.cache) {
         this.cache = { rates: { ...FALLBACK_RATES }, fetchedAt: Date.now() };
       }
