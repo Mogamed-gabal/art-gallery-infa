@@ -11,6 +11,9 @@ import { ArtworksModule } from './modules/artworks/artworks.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { ClientRequestsModule } from './modules/client-requests/client-requests.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { CourseVideosModule } from './modules/course-videos/course-videos.module';
+import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 
 @Module({
   imports: [
@@ -66,6 +69,9 @@ import { ClientRequestsModule } from './modules/client-requests/client-requests.
     OrdersModule,
     CoursesModule,
     ClientRequestsModule,
+    CustomersModule,
+    CourseVideosModule,
+    EnrollmentsModule,
   ],
 })
-export class AppModule { }
+export class AppModule {}

@@ -3,11 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CloudinaryModule } from '../../shared/cloudinary/cloudinary.module';
 import { AuthModule } from '../auth/auth.module';
 import { Course } from './entities/course.entity';
+import { CourseVideo } from '../course-videos/entities/course-video.entity';
 import { CoursesController } from './courses.controller';
 import { CoursesService } from './courses.service';
 
 @Module({
-  imports: [AuthModule, CloudinaryModule, TypeOrmModule.forFeature([Course])],
+  imports: [AuthModule, CloudinaryModule, TypeOrmModule.forFeature([Course, CourseVideo])],
   controllers: [CoursesController],
   providers: [CoursesService],
   exports: [CoursesService],

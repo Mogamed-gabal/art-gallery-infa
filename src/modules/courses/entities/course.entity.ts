@@ -1,4 +1,13 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { CourseVideo } from '../../course-videos/entities/course-video.entity';
+import { Enrollment } from '../../enrollments/entities/enrollment.entity';
 
 @Entity({ name: 'courses' })
 export class Course {
@@ -28,8 +37,18 @@ export class Course {
   @Column({ type: 'varchar', length: 1000, nullable: true })
   welcomeVideoUrl!: string | null;
 
+  /** Price in USD */
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  price!: string;
+
   @Column({ default: true })
   isActive!: boolean;
+
+  @OneToMany(() => CourseVideo, (v) => v.course, { cascade: true, eager: false })
+  videos!: CourseVideo[];
+
+  @OneToMany(() => Enrollment, (e) => e.course, { eager: false })
+  enrollments!: Enrollment[];
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
@@ -37,4 +56,3 @@ export class Course {
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt!: Date;
 }
-
